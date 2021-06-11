@@ -1,0 +1,9 @@
+".\USBJmpTb.OBJ",
+".\EZUSB.LIB",
+"hid.obj",
+"DSCR.obj",
+"FW.obj" 
+TO "ezcombo" 
+RAMSIZE(256) 
+CODE( 0x80 )
+XDATA( 0x1000 )

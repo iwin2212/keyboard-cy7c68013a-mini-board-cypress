@@ -1,0 +1,19 @@
+<html>
+<body>
+<pre>
+<h1>µVision2 Build Log</h1>
+<h2>Project:</h2>
+C:\Users\oOOo\Documents\Desktop\AN64020_new\Firmware\ezcombo.uv2
+Project File Date:  05/29/2021
+
+<h2>Output:</h2>
+Build target 'Target 1'
+compiling hid.c...
+assembling DSCR.A51...
+compiling FW.C...
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?READ_BUTTONS?HID
+Program Size: data=64.5 xdata=4473 code=2724
+creating hex file from "ezcombo"...
+"ezcombo" - 0 Error(s), 1 Warning(s).

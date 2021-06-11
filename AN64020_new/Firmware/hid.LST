@@ -1,0 +1,553 @@
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE HID
+OBJECT MODULE PLACED IN hid.OBJ
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE hid.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          
+   2          #pragma NOIV               // Do not generate interrupt vectors
+   3          
+   4          #include "fx2.h"
+   5          #include "fx2regs.h"
+   6          #include "syncdly.h"
+   7          
+   8          extern BOOL   GotSUD;         // Received setup data flag
+   9          extern BOOL   Sleep;
+  10          extern BOOL   Rwuen;
+  11          extern BOOL   Selfpwr;
+  12          #define min(a,b) (((a)<(b))?(a):(b))
+  13          
+  14          #define GD_HID  0x21
+  15          #define GD_REPORT 0x22
+  16          #define CR_SET_REPORT 0x09
+  17          #define GD_IF0 0x00
+  18          #define GD_IF1 0x01
+  19          #define HID_OUTPUT_REPORT 2
+  20          
+  21          #define BTN_ADDR    0x41
+  22          extern BOOL GotSUD;     // Received setup data flag
+  23          extern BOOL Sleep;
+  24          
+  25          WORD  pHID1Dscr;
+  26          WORD  pHID1ReportDscr;
+  27          WORD  pHID1ReportDscrEnd;
+  28          extern code HID1Dscr;
+  29          extern code HID1ReportDscr;
+  30          extern code HID1ReportDscrEnd;
+  31          
+  32          WORD  pHID2Dscr;
+  33          WORD  pHID2ReportDscr;
+  34          WORD  pHID2ReportDscrEnd;
+  35          extern code HID2Dscr;
+  36          extern code HID2ReportDscr;
+  37          extern code HID2ReportDscrEnd;
+  38          
+  39          
+  40          BYTE   Configuration;      // Current configuration
+  41          BYTE   AlternateSetting;   // Alternate settings
+  42          
+  43            //-----------------------------------------------------------------------------
+  44            // Task Dispatcher hooks
+  45            //   The following hooks are called by the task dispatcher.
+  46            //-----------------------------------------------------------------------------
+  47          
+  48            // The two interrupt IN endpoints and the two bulk endpoints are initialized 
+  49          
+  50          void TD_Init(void)             // Called once at startup
+  51            {
+  52   1           // set the CPU clock to 48MHz
+  53   1        CPUCS = ((CPUCS & ~bmCLKSPD) | bmCLKSPD1);
+  54   1      
+  55   1        // set the slave FIFO interface to 48MHz
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 2   
+
+  56   1        //IFCONFIG |= 0x40;
+  57   1        IFCONFIG = 0x00; // custom
+  58   1        OEB = 0xF0;
+  59   1        IOB = 0xF0;
+  60   1      
+  61   1        EZUSB_Delay(2000);
+  62   1      
+  63   1      
+  64   1         // Registers which require a synchronization delay, see section 15.14
+  65   1         // FIFORESET        FIFOPINPOLAR
+  66   1         // INPKTEND         OUTPKTEND
+  67   1         // EPxBCH:L         REVCTL
+  68   1         // GPIFTCB3         GPIFTCB2
+  69   1         // GPIFTCB1         GPIFTCB0
+  70   1         // EPxFIFOPFH:L     EPxAUTOINLENH:L
+  71   1         // EPxFIFOCFG       EPxGPIFFLGSEL
+  72   1         // PINFLAGSxx       EPxFIFOIRQ
+  73   1         // EPxFIFOIE        GPIFIRQ
+  74   1         // GPIFIE           GPIFADRH:L
+  75   1         // UDMACRCH:L       EPxGPIFTRIG
+  76   1         // GPIFTRIG
+  77   1      
+  78   1         // Note: The pre-REVE EPxGPIFTCH/L register are affected, as well...
+  79   1         //      ...these have been replaced by GPIFTC[B3:B0] registers
+  80   1      
+  81   1         // default: all endpoints have their VALID bit set
+  82   1         // default: TYPE1 = 1 and TYPE0 = 0 --> BULK  
+  83   1         // default: EP2 and EP4 DIR bits are 0 (OUT direction)
+  84   1         // default: EP6 and EP8 DIR bits are 1 (IN direction)
+  85   1         // default: EP2, EP4, EP6, and EP8 are double buffered
+  86   1      
+  87   1         // we are just using the default values, yes this is not necessary...
+  88   1        EP1INCFG = 0xB0;
+  89   1        SYNCDELAY;                    // see TRM section 15.14
+  90   1        EP2CFG = 0xF0;
+  91   1        SYNCDELAY;
+  92   1        EP6CFG = 0xA2;
+  93   1        SYNCDELAY;
+  94   1        EP8CFG = 0xE2;
+  95   1        SYNCDELAY;
+  96   1        EP6BCL = 0x80;                // arm EP6OUT by writing byte count w/skip.
+  97   1        SYNCDELAY;
+  98   1        EP6BCL = 0x80;
+  99   1        SYNCDELAY;
+ 100   1      
+ 101   1        // enable dual autopointer feature
+ 102   1        AUTOPTRSETUP |= 0x01;
+ 103   1        }
+ 104          
+ 105          BYTE read_buttons(void) {
+ 106   1        BYTE d;
+ 107   1      
+ 108   1        while (IOB & 0x40); //Wait for stop to be done
+ 109   1        I2CS = 0x80;      //Set start condition
+ 110   1        I2DAT = BTN_ADDR;   //Write button address
+ 111   1        while (!(I2CS & 0x01)); //Wait for done
+ 112   1        I2CS = 0x20;      //Set last read
+ 113   1        d = I2DAT;        //Dummy read
+ 114   1        while (!(I2CS & 0x01)); //Wait for done
+ 115   1        I2CS = 0x40;      //Set stop bit
+ 116   1        return(I2DAT);      //Read the data
+ 117   1        }
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 3   
+
+ 118          
+ 119          
+ 120          void TD_Poll(void)        // Called repeatedly while the device is idle
+ 121            {
+ 122   1        WORD i, count;
+ 123   1        if (!(EP1INCS & bmEPBUSY))  // Is the IN1BUF available,
+ 124   1          {
+ 125   2          EP1INBUF[3] = 0x00;
+ 126   2          EP1INBUF[4] = 0x00;
+ 127   2      
+ 128   2          IOB = 0xE0;
+ 129   2          if (!(IOB & 0x01)) {//1110 0001
+ 130   3            EP1INBUF[3] = 0x1e;//1
+ 131   3            }
+ 132   2          else if (!(IOB & 0x02)) {//1110 0010
+ 133   3            EP1INBUF[3] = 0x1f;// 2
+ 134   3            }
+ 135   2          else if (!(IOB & 0x04)) {//1110 0100
+ 136   3            EP1INBUF[3] = 0x20;//3
+ 137   3            }
+ 138   2          else if (!(IOB & 0x08)) {//1110 1000
+ 139   3            EP1INBUF[3] = 0x04;//A
+ 140   3            }
+ 141   2      
+ 142   2          IOB = 0xD0;
+ 143   2          if (!(IOB & 0x01)) {//1101 xxxx
+ 144   3            EP1INBUF[3] = 0x21;//4
+ 145   3            }
+ 146   2          else if (!(IOB & 0x02)) {
+ 147   3            EP1INBUF[3] = 0x22;//5
+ 148   3            }
+ 149   2          else if (!(IOB & 0x04)) {
+ 150   3            EP1INBUF[3] = 0x23;//6
+ 151   3            }
+ 152   2          else if (!(IOB & 0x08)) {
+ 153   3            EP1INBUF[3] = 0x05;//B
+ 154   3            }
+ 155   2      
+ 156   2          IOB = 0xB0;
+ 157   2          if (!(IOB & 0x01)) {//1011 xxxx
+ 158   3            EP1INBUF[3] = 0x24;//7
+ 159   3            }
+ 160   2          else if (!(IOB & 0x02)) {
+ 161   3            EP1INBUF[3] = 0x25;//8
+ 162   3            }
+ 163   2          else if (!(IOB & 0x04)) {
+ 164   3            EP1INBUF[3] = 0x26;//9
+ 165   3            }
+ 166   2          else if (!(IOB & 0x08)) {
+ 167   3            EP1INBUF[3] = 0x06;//C
+ 168   3            }
+ 169   2      
+ 170   2          IOB = 0x70;
+ 171   2          if (!(IOB & 0x01)) {//0111 xxxx
+ 172   3            EP1INBUF[3] = 0x55;//*
+ 173   3            }
+ 174   2          else if (!(IOB & 0x02)) {
+ 175   3            EP1INBUF[3] = 0x27;//0
+ 176   3            }
+ 177   2          else if (!(IOB & 0x04)) {
+ 178   3            EP1INBUF[3] = 0xCC;//#
+ 179   3            }
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 4   
+
+ 180   2          else if (!(IOB & 0x08)) {
+ 181   3            EP1INBUF[3] = 0x07;//d
+ 182   3            }
+ 183   2      
+ 184   2          }
+ 185   1        EP1INBUF[0] = 0x00;
+ 186   1        EP1INBUF[1] = 0x00;
+ 187   1        EP1INBUF[2] = 0x00;
+ 188   1      
+ 189   1        EP1INBC = 5;
+ 190   1        // SYNCDELAY;
+ 191   1        //EZUSB_Delay(2000);
+ 192   1        if (!(EP2468STAT & bmEP6EMPTY)) { // check EP6 EMPTY(busy) bit in EP2468STAT (SFR), core set's this bit w
+             -hen FIFO is empty
+ 193   2          if (!(EP2468STAT & bmEP8FULL)) {  // check EP8 FULL(busy) bit in EP2468STAT (SFR), core set's this bit w
+             -hen FIFO is full
+ 194   3            APTR1H = MSB(&EP6FIFOBUF);
+ 195   3            APTR1L = LSB(&EP6FIFOBUF);
+ 196   3      
+ 197   3            AUTOPTRH2 = MSB(&EP8FIFOBUF);
+ 198   3            AUTOPTRL2 = LSB(&EP8FIFOBUF);
+ 199   3      
+ 200   3            count = (EP6BCH << 8) + EP6BCL;
+ 201   3      
+ 202   3            // loop EP6OUT buffer data to EP8IN
+ 203   3            for (i = 0x0000; i < count; i++) {
+ 204   4                 // setup to transfer EP6OUT buffer to EP8IN buffer using AUTOPOINTER(s)
+ 205   4              EXTAUTODAT2 = EXTAUTODAT1;
+ 206   4              EZUSB_Delay(500);
+ 207   4              }
+ 208   3            EP8BCH = EP6BCH;
+ 209   3            SYNCDELAY;
+ 210   3            EP8BCL = EP6BCL;        // arm EP8IN
+ 211   3            SYNCDELAY;
+ 212   3            EP6BCL = 0x80;          // re(arm) EP6OUT
+ 213   3            }
+ 214   2          }
+ 215   1        }
+ 216          
+ 217          
+ 218          BOOL TD_Suspend(void)          // Called before the device goes into suspend mode
+ 219            {
+ 220   1        return(TRUE);
+ 221   1        }
+ 222          
+ 223          BOOL TD_Resume(void)          // Called after the device resumes
+ 224            {
+ 225   1        return(TRUE);
+ 226   1        }
+ 227          
+ 228            //-----------------------------------------------------------------------------
+ 229            // Device Request hooks
+ 230            //   The following hooks are called by the end point 0 device request parser.
+ 231            //-----------------------------------------------------------------------------
+ 232          
+ 233          
+ 234          BOOL DR_ClassRequest(void) {
+ 235   1        return(TRUE);
+ 236   1        }
+ 237          
+ 238          
+ 239            // Loading HID/ Report Descriptor
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 5   
+
+ 240          BOOL DR_GetDescriptor(void) {
+ 241   1        BYTE HID1length, i;
+ 242   1        BYTE HID2length;
+ 243   1      
+ 244   1        pHID1Dscr = (WORD) &HID1Dscr;
+ 245   1        pHID1ReportDscr = (WORD) &HID1ReportDscr;
+ 246   1        pHID1ReportDscrEnd = (WORD) &HID1ReportDscrEnd;
+ 247   1      
+ 248   1        pHID2Dscr = (WORD) &HID2Dscr;
+ 249   1        pHID2ReportDscr = (WORD) &HID2ReportDscr;
+ 250   1        pHID2ReportDscrEnd = (WORD) &HID2ReportDscrEnd;
+ 251   1      
+ 252   1        switch (SETUPDAT[3]) {
+ 253   2            case GD_HID:          //HID Descriptor      
+ 254   2              switch (SETUPDAT[4]) {
+ 255   3                  case GD_IF0:
+ 256   3                    HID1length = SETUPDAT[6];
+ 257   3                    AUTOPTR1H = MSB(pHID1Dscr);
+ 258   3                    AUTOPTR1L = LSB(pHID1Dscr);
+ 259   3                    for (i = 0; i < HID1length; i++)
+ 260   3                      EP0BUF[i] = XAUTODAT1;
+ 261   3                    EP0BCL = HID1length;
+ 262   3                    break;
+ 263   3                  case GD_IF1:
+ 264   3                    HID2length = SETUPDAT[6];
+ 265   3                    AUTOPTR1H = MSB(pHID2Dscr);
+ 266   3                    AUTOPTR1L = LSB(pHID2Dscr);
+ 267   3                    for (i = 0; i < HID2length; i++)
+ 268   3                      EP0BUF[i] = XAUTODAT1;
+ 269   3                    EP0BCL = HID2length;
+ 270   3                    break;
+ 271   3                  default:
+ 272   3                    EZUSB_STALL_EP0();
+ 273   3                }
+ 274   2              return (FALSE);
+ 275   2              break;
+ 276   2            case GD_REPORT:         //Report Descriptor
+ 277   2              switch (SETUPDAT[4]) {
+ 278   3                  case GD_IF0:
+ 279   3                    HID1length = pHID1ReportDscrEnd - pHID1ReportDscr;
+ 280   3                    AUTOPTR1H = MSB(pHID1ReportDscr);
+ 281   3                    AUTOPTR1L = LSB(pHID1ReportDscr);
+ 282   3                    for (i = 0; i < HID1length; i++)
+ 283   3                      EP0BUF[i] = XAUTODAT1;
+ 284   3                    EP0BCL = HID1length;
+ 285   3                    break;
+ 286   3                  case GD_IF1:
+ 287   3                    HID2length = pHID2ReportDscrEnd - pHID2ReportDscr;
+ 288   3                    AUTOPTR1H = MSB(pHID2ReportDscr);
+ 289   3                    AUTOPTR1L = LSB(pHID2ReportDscr);
+ 290   3                    for (i = 0; i < HID2length; i++)
+ 291   3                      EP0BUF[i] = XAUTODAT1;
+ 292   3                    EP0BCL = HID2length;
+ 293   3                    break;
+ 294   3                  default:
+ 295   3                    EZUSB_STALL_EP0();
+ 296   3                }
+ 297   2              return (FALSE);
+ 298   2              break;
+ 299   2            default:
+ 300   2              return(TRUE);
+ 301   2          }
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 6   
+
+ 302   1        }
+ 303          
+ 304          BOOL DR_SetConfiguration(void)   // Called when a Set Configuration command is received
+ 305            {
+ 306   1        Configuration = SETUPDAT[2];
+ 307   1        return(TRUE);            // Handled by user code
+ 308   1        }
+ 309          
+ 310          BOOL DR_GetConfiguration(void)   // Called when a Get Configuration command is received
+ 311            {
+ 312   1        EP0BUF[0] = Configuration;
+ 313   1        EP0BCH = 0;
+ 314   1        EP0BCL = 1;
+ 315   1        return(TRUE);            // Handled by user code
+ 316   1        }
+ 317          
+ 318          BOOL DR_SetInterface(void)       // Called when a Set Interface command is received
+ 319            {
+ 320   1        AlternateSetting = SETUPDAT[2];
+ 321   1        return(TRUE);            // Handled by user code
+ 322   1        }
+ 323          
+ 324          BOOL DR_GetInterface(void)       // Called when a Set Interface command is received
+ 325            {
+ 326   1        EP0BUF[0] = AlternateSetting;
+ 327   1        EP0BCH = 0;
+ 328   1        EP0BCL = 1;
+ 329   1        return(TRUE);            // Handled by user code
+ 330   1        }
+ 331          
+ 332          BOOL DR_GetStatus(void) {
+ 333   1        return(TRUE);
+ 334   1        }
+ 335          
+ 336          BOOL DR_ClearFeature(void) {
+ 337   1        return(TRUE);
+ 338   1        }
+ 339          
+ 340          BOOL DR_SetFeature(void) {
+ 341   1        return(TRUE);
+ 342   1        }
+ 343          
+ 344          BOOL DR_VendorCmnd(void) {
+ 345   1        return(TRUE);
+ 346   1        }
+ 347          
+ 348            //-----------------------------------------------------------------------------
+ 349            // USB Interrupt Handlers
+ 350            //   The following functions are called by the USB interrupt jump table.
+ 351            //-----------------------------------------------------------------------------
+ 352          
+ 353            // Setup Data Available Interrupt Handler
+ 354          void ISR_Sudav(void) interrupt 0
+ 355            {
+ 356   1        GotSUD = TRUE;            // Set flag
+ 357   1        EZUSB_IRQ_CLEAR();
+ 358   1        USBIRQ = bmSUDAV;         // Clear SUDAV IRQ
+ 359   1        }
+ 360          
+ 361            // Setup Token Interrupt Handler
+ 362          void ISR_Sutok(void) interrupt 0
+ 363            {
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 7   
+
+ 364   1        EZUSB_IRQ_CLEAR();
+ 365   1        USBIRQ = bmSUTOK;         // Clear SUTOK IRQ
+ 366   1        }
+ 367          
+ 368          void ISR_Sof(void) interrupt 0
+ 369            {
+ 370   1        EZUSB_IRQ_CLEAR();
+ 371   1        USBIRQ = bmSOF;            // Clear SOF IRQ
+ 372   1        }
+ 373          
+ 374          void ISR_Ures(void) interrupt 0
+ 375            {
+ 376   1           // whenever we get a USB reset, we should revert to full speed mode
+ 377   1        pConfigDscr = pFullSpeedConfigDscr;
+ 378   1        ((CONFIGDSCR xdata*) pConfigDscr)->type = CONFIG_DSCR;
+ 379   1        pOtherConfigDscr = pHighSpeedConfigDscr;
+ 380   1        ((CONFIGDSCR xdata*) pOtherConfigDscr)->type = OTHERSPEED_DSCR;
+ 381   1      
+ 382   1        EZUSB_IRQ_CLEAR();
+ 383   1        USBIRQ = bmURES;         // Clear URES IRQ
+ 384   1        }
+ 385          
+ 386          void ISR_Susp(void) interrupt 0
+ 387            {
+ 388   1        Sleep = TRUE;
+ 389   1        EZUSB_IRQ_CLEAR();
+ 390   1        USBIRQ = bmSUSP;
+ 391   1        }
+ 392          
+ 393          void ISR_Highspeed(void) interrupt 0
+ 394            {
+ 395   1        if (EZUSB_HIGHSPEED()) {
+ 396   2          pConfigDscr = pHighSpeedConfigDscr;
+ 397   2          ((CONFIGDSCR xdata*) pConfigDscr)->type = CONFIG_DSCR;
+ 398   2          pOtherConfigDscr = pFullSpeedConfigDscr;
+ 399   2          ((CONFIGDSCR xdata*) pOtherConfigDscr)->type = OTHERSPEED_DSCR;
+ 400   2          }
+ 401   1      
+ 402   1        EZUSB_IRQ_CLEAR();
+ 403   1        USBIRQ = bmHSGRANT;
+ 404   1        }
+ 405          void ISR_Ep0ack(void) interrupt 0
+ 406            {
+ 407   1        }
+ 408          void ISR_Stub(void) interrupt 0
+ 409            {
+ 410   1        }
+ 411          void ISR_Ep0in(void) interrupt 0
+ 412            {
+ 413   1        }
+ 414          void ISR_Ep0out(void) interrupt 0
+ 415            {
+ 416   1        }
+ 417          void ISR_Ep1in(void) interrupt 0
+ 418            {
+ 419   1        }
+ 420          void ISR_Ep1out(void) interrupt 0
+ 421            {
+ 422   1        }
+ 423          void ISR_Ep2inout(void) interrupt 0
+ 424            {
+ 425   1        }
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 8   
+
+ 426          void ISR_Ep4inout(void) interrupt 0
+ 427            {
+ 428   1        }
+ 429          void ISR_Ep6inout(void) interrupt 0
+ 430            {
+ 431   1        }
+ 432          void ISR_Ep8inout(void) interrupt 0
+ 433            {
+ 434   1        }
+ 435          void ISR_Ibn(void) interrupt 0
+ 436            {
+ 437   1        }
+ 438          void ISR_Ep0pingnak(void) interrupt 0
+ 439            {
+ 440   1        }
+ 441          void ISR_Ep1pingnak(void) interrupt 0
+ 442            {
+ 443   1        }
+ 444          void ISR_Ep2pingnak(void) interrupt 0
+ 445            {
+ 446   1        }
+ 447          void ISR_Ep4pingnak(void) interrupt 0
+ 448            {
+ 449   1        }
+ 450          void ISR_Ep6pingnak(void) interrupt 0
+ 451            {
+ 452   1        }
+ 453          void ISR_Ep8pingnak(void) interrupt 0
+ 454            {
+ 455   1        }
+ 456          void ISR_Errorlimit(void) interrupt 0
+ 457            {
+ 458   1        }
+ 459          void ISR_Ep2piderror(void) interrupt 0
+ 460            {
+ 461   1        }
+ 462          void ISR_Ep4piderror(void) interrupt 0
+ 463            {
+ 464   1        }
+ 465          void ISR_Ep6piderror(void) interrupt 0
+ 466            {
+ 467   1        }
+ 468          void ISR_Ep8piderror(void) interrupt 0
+ 469            {
+ 470   1        }
+ 471          void ISR_Ep2pflag(void) interrupt 0
+ 472            {
+ 473   1        }
+ 474          void ISR_Ep4pflag(void) interrupt 0
+ 475            {
+ 476   1        }
+ 477          void ISR_Ep6pflag(void) interrupt 0
+ 478            {
+ 479   1        }
+ 480          void ISR_Ep8pflag(void) interrupt 0
+ 481            {
+ 482   1        }
+ 483          void ISR_Ep2eflag(void) interrupt 0
+ 484            {
+ 485   1        }
+ 486          void ISR_Ep4eflag(void) interrupt 0
+ 487            {
+C51 COMPILER V9.60.0.0   HID                                                               06/11/2021 13:52:09 PAGE 9   
+
+ 488   1        }
+ 489          void ISR_Ep6eflag(void) interrupt 0
+ 490            {
+ 491   1        }
+ 492          void ISR_Ep8eflag(void) interrupt 0
+ 493            {
+ 494   1        }
+ 495          void ISR_Ep2fflag(void) interrupt 0
+ 496            {
+ 497   1        }
+ 498          void ISR_Ep4fflag(void) interrupt 0
+ 499            {
+ 500   1        }
+ 501          void ISR_Ep6fflag(void) interrupt 0
+ 502            {
+ 503   1        }
+ 504          void ISR_Ep8fflag(void) interrupt 0
+ 505            {
+ 506   1        }
+ 507          void ISR_GpifComplete(void) interrupt 0
+ 508            {
+ 509   1        }
+ 510          void ISR_GpifWaveform(void) interrupt 0
+ 511            {
+ 512   1        }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1087    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     14       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,490 @@
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN DSCR.OBJ
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE DSCR.A51 SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;;-----------------------------------------------------------------------------
+                       2     ;;   File:      dscr.a51
+                       3     ;;   Contents:  This file contains descriptor data tables.
+                       4     ;;
+                       5     ;; $Archive: /USB/Examples/Fx2lp/bulkloop/dscr.a51 $
+                       6     ;; $Date: 9/01/03 8:51p $
+                       7     ;; $Revision: 3 $
+                       8     ;;
+                       9     ;;
+                      10     ;;-----------------------------------------------------------------------------
+                      11     ;; Copyright 2003, Cypress Semiconductor Corporation
+                      12     ;;-----------------------------------------------------------------------------;;----------
+                             -------------------------------------------------------------------
+                      13        
+  0001                14     DSCR_DEVICE   equ   1   ;; Descriptor type: Device
+  0002                15     DSCR_CONFIG   equ   2   ;; Descriptor type: Configuration
+  0003                16     DSCR_STRING   equ   3   ;; Descriptor type: String
+  0004                17     DSCR_INTRFC   equ   4   ;; Descriptor type: Interface
+  0005                18     DSCR_ENDPNT   equ   5   ;; Descriptor type: Endpoint
+  0006                19     DSCR_DEVQUAL  equ   6   ;; Descriptor type: Device Qualifier
+                      20     
+  0012                21     DSCR_DEVICE_LEN   equ   18
+  0009                22     DSCR_CONFIG_LEN   equ    9
+  0009                23     DSCR_INTRFC_LEN   equ    9
+  0007                24     DSCR_ENDPNT_LEN   equ    7
+  000A                25     DSCR_DEVQUAL_LEN  equ   10
+                      26     
+  0000                27     ET_CONTROL   equ   0   ;; Endpoint type: Control
+  0001                28     ET_ISO       equ   1   ;; Endpoint type: Isochronous
+  0002                29     ET_BULK      equ   2   ;; Endpoint type: Bulk
+  0003                30     ET_INT       equ   3   ;; Endpoint type: Interrupt
+                      31     
+                      32     public      DeviceDscr, DeviceQualDscr, HighSpeedConfigDscr, FullSpeedConfigDscr, StringDsc
+                             r, UserDscr, HID1Dscr, HID1ReportDscr, HID1ReportDscrEnd
+                      33     public      HID2Dscr, HID2ReportDscr, HID2ReportDscrEnd, HID1DscrFS, HID2DscrFS
+                      34     
+                      35     ;;DSCR   SEGMENT   CODE PAGE
+                      36     
+                      37     ;;-----------------------------------------------------------------------------
+                      38     ;; Global Variables
+                      39     ;;-----------------------------------------------------------------------------
+                      40     ;;      rseg DSCR      ;; locate the descriptor table in on-part memory.
+                      41     
+----                  42     CSEG AT 100H
+                      43     
+0100                  44     DeviceDscr:   
+0100 12               45           db   DSCR_DEVICE_LEN      ;; Descriptor length
+0101 01               46           db   DSCR_DEVICE   ;; Decriptor type
+0102 0002             47           dw   0002H      ;; Specification Version (BCD)
+0104 00               48           db   00H        ;; Device class
+0105 00               49           db   00H         ;; Device sub-class
+0106 00               50           db   00H         ;; Device sub-sub-class
+0107 40               51           db   64         ;; Maximum packet size
+0108 B404             52           dw   0B404H     ;; Vendor ID
+010A 0410             53           dw   0410H      ;; Product ID
+010C 0100             54           dw   0100H      ;; Product version ID
+010E 00               55           db   0         ;; Manufacturer string index
+010F 00               56           db   0         ;; Product string index
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     2
+
+0110 00               57           db   0         ;; Serial number string index
+0111 01               58           db   1         ;; Number of configurations
+                      59     
+0112                  60     DeviceQualDscr:
+0112 0A               61           db   DSCR_DEVQUAL_LEN   ;; Descriptor length
+0113 06               62           db   DSCR_DEVQUAL   ;; Decriptor type
+0114 0002             63           dw   0002H      ;; Specification Version (BCD)
+0116 00               64           db   00H        ;; Device class
+0117 00               65           db   00H         ;; Device sub-class
+0118 00               66           db   00H         ;; Device sub-sub-class
+0119 40               67           db   64         ;; Maximum packet size
+011A 01               68           db   1         ;; Number of configurations
+011B 00               69           db   0         ;; Reserved
+                      70     
+011C                  71     HighSpeedConfigDscr:   
+011C 09               72           db   DSCR_CONFIG_LEN               ;; Descriptor length
+011D 02               73           db   DSCR_CONFIG                  ;; Descriptor type
+011E 52               74           db   (HighSpeedConfigDscrEnd-HighSpeedConfigDscr) mod 256 ;; Total Length (LSB)
+011F 00               75           db   (HighSpeedConfigDscrEnd-HighSpeedConfigDscr)  /  256 ;; Total Length (MSB)
+0120 03               76           db   3      ;; Number of interfaces
+0121 01               77           db   1      ;; Configuration number
+0122 00               78           db   0      ;; Configuration string
+0123 80               79           db   10000000b   ;; Attributes (b7 - buspwr, b6 - selfpwr, b5 - rwu)
+0124 32               80           db   50      ;; Power requirement (div 2 ma)
+                      81     
+0125                  82     HID1IntrfcDscr:
+0125 09               83                     db      HID1IntrfcDscrEnd-HID1IntrfcDscr                ;; Descriptor length
+0126 04               84                     db      DSCR_INTRFC     ;; Descriptor type
+0127 00               85                     db      00H             ;; Zero-based index of this interface
+0128 00               86                     db      0               ;; Alternate setting
+0129 01               87                     db      1               ;; Number of end points 
+012A 03               88                     db      03H             ;; Interface class (HID)
+012B 00               89                     db      00H             ;; Boot Interface sub class
+012C 02               90                     db      02H             ;; Interface sub sub class (Mouse)
+012D 01               91                     db      1               ;; Interface descriptor string index
+012E                  92     HID1IntrfcDscrEnd:
+                      93                     
+012E                  94     HID1Dscr:       
+012E 09               95                     db      09h             ; length
+012F 21               96                     db      21h             ; type: HID
+0130 1001             97                     db      10h,01h         ; release: HID class rev 1.1
+0132 00               98                     db      00h             ; country code (none)
+0133 01               99                     db      01h             ; number of HID class descriptors to follow
+0134 22              100                     db      22h             ; report descriptor type (HID)
+0135 32              101                     db      (HID1ReportDscrEnd-HID1ReportDscr) ; length of HID descriptor
+0136 00              102                     db      00h
+0137                 103     HID1DscrEnd:
+                     104     
+                     105     
+0137                 106     HID1EpInDscr:
+0137 07              107                     db      HID1EpInDscrEnd-HID1EpInDscr            ;; Descriptor length
+0138 05              108                     db      DSCR_ENDPNT     ;; Descriptor type
+0139 82              109                     db      82H             ;; Endpoint number, and direction
+013A 03              110                     db      ET_INT          ;; Endpoint type
+013B 40              111                     db      40H             ;; Maximum packet size (LSB)
+013C 00              112                     db      00H             ;; Max packet size (MSB)
+013D 0A              113                     db      10              ;; Polling interval
+013E                 114     HID1EpInDscrEnd:
+                     115     
+013E                 116     HID2IntrfcDscr:
+013E 09              117                     db      HID2IntrfcDscrEnd-HID2IntrfcDscr                ;; Descriptor length
+013F 04              118                     db      DSCR_INTRFC     ;; Descriptor type
+0140 01              119                     db      01H             ;; Zero-based index of this interface
+0141 00              120                     db      0               ;; Alternate setting
+0142 01              121                     db      1               ;; Number of end points 
+0143 03              122                     db      03H             ;; Interface class (HID)
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     3
+
+0144 00              123                     db      00H             ;; Interface sub class
+0145 00              124                     db      00H             ;; Interface sub sub class
+0146 02              125                     db      2               ;; Interface descriptor string index
+0147                 126     HID2IntrfcDscrEnd:
+                     127                     
+0147                 128     HID2Dscr:       
+0147 09              129                     db      09h             ; length
+0148 21              130                     db      21h             ; type: HID
+0149 1001            131                     db      10h,01h         ; release: HID class rev 1.0
+014B 00              132                     db      00h             ; country code (none)
+014C 01              133                     db      01h             ; number of HID class descriptors to follow
+014D 22              134                     db      22h             ; report descriptor type (HID)
+014E 3F              135                     db      (HID2ReportDscrEnd-HID2ReportDscr) ; length of HID descriptor
+014F 00              136                     db      00h
+0150                 137     HID2DscrEnd:
+                     138     
+                     139     
+0150                 140     HID2EpInDscr:
+0150 07              141                     db      HID2EpInDscrEnd-HID2EpInDscr            ;; Descriptor length
+0151 05              142                     db      DSCR_ENDPNT     ;; Descriptor type
+0152 81              143                     db      81H             ;; Endpoint number, and direction
+0153 03              144                     db      ET_INT          ;; Endpoint type
+0154 40              145                     db      40H             ;; Maximun packet size (LSB)
+0155 00              146                     db      00H             ;; Max packect size (MSB)
+0156 0A              147                     db      10              ;; Polling interval
+0157                 148     HID2EpInDscrEnd:
+                     149     
+                     150     ;; Interface Descriptor
+0157 09              151           db   DSCR_INTRFC_LEN      ;; Descriptor length
+0158 04              152           db   DSCR_INTRFC         ;; Descriptor type
+0159 02              153           db   02H               ;; Zero-based index of this interface
+015A 00              154           db   0               ;; Alternate setting
+015B 02              155           db   2               ;; Number of end points 
+015C FF              156           db   0ffH            ;; Interface class
+015D 00              157           db   00H               ;; Interface sub class
+015E 00              158           db   00H               ;; Interface sub sub class
+015F 00              159           db   0               ;; Interface descriptor string index
+                     160           
+                     161     ;; Endpoint Descriptor
+0160 07              162           db   DSCR_ENDPNT_LEN      ;; Descriptor length
+0161 05              163           db   DSCR_ENDPNT         ;; Descriptor type
+0162 06              164           db   06H               ;; Endpoint number, and direction
+0163 02              165           db   ET_BULK            ;; Endpoint type
+0164 00              166           db   00H               ;; Maximun packet size (LSB)
+0165 02              167           db   02H               ;; Max packect size (MSB)
+0166 00              168           db   00H               ;; Polling interval
+                     169     
+                     170     ;; Endpoint Descriptor
+0167 07              171           db   DSCR_ENDPNT_LEN      ;; Descriptor length
+0168 05              172           db   DSCR_ENDPNT         ;; Descriptor type
+0169 88              173           db   88H               ;; Endpoint number, and direction
+016A 02              174           db   ET_BULK            ;; Endpoint type
+016B 00              175           db   00H               ;; Maximun packet size (LSB)
+016C 02              176           db   02H               ;; Max packect size (MSB)
+016D 00              177           db   00H               ;; Polling interval
+                     178     
+016E                 179     HighSpeedConfigDscrEnd:
+                     180     
+0170                 181     org (($ / 2) +1) * 2
+                     182     
+0170                 183     FullSpeedConfigDscr:   
+0170 09              184           db   DSCR_CONFIG_LEN               ;; Descriptor length
+0171 02              185           db   DSCR_CONFIG                  ;; Descriptor type
+0172 52              186           db   (FullSpeedConfigDscrEnd-FullSpeedConfigDscr) mod 256 ;; Total Length (LSB)
+0173 00              187           db   (FullSpeedConfigDscrEnd-FullSpeedConfigDscr)  /  256 ;; Total Length (MSB)
+0174 03              188           db   3      ;; Number of interfaces
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     4
+
+0175 01              189           db   1      ;; Configuration number
+0176 00              190           db   0      ;; Configuration string
+0177 80              191           db   10000000b   ;; Attributes (b7 - buspwr, b6 - selfpwr, b5 - rwu)
+0178 32              192           db   50      ;; Power requirement (div 2 ma)
+                     193     
+0179                 194     HID1IntrfcDscrFS:
+0179 09              195                     db      HID1IntrfcDscrEnd-HID1IntrfcDscr                ;; Descriptor length
+017A 04              196                     db      DSCR_INTRFC     ;; Descriptor type
+017B 00              197                     db      00H             ;; Zero-based index of this interface
+017C 00              198                     db      0               ;; Alternate setting
+017D 01              199                     db      1               ;; Number of end points 
+017E 03              200                     db      03H             ;; Interface class (HID)
+017F 00              201                     db      00H             ;; Boot Interface sub class
+0180 02              202                     db      02H             ;; Interface sub sub class (Mouse)
+0181 00              203                     db      0               ;; Interface descriptor string index
+0182                 204     HID1IntrfcDscrEndFS:
+                     205                     
+0182                 206     HID1DscrFS:     
+0182 09              207                     db      09h             ; length
+0183 21              208                     db      21h             ; type: HID
+0184 1001            209                     db      10h,01h         ; release: HID class rev 1.1
+0186 00              210                     db      00h             ; country code (none)
+0187 01              211                     db      01h             ; number of HID class descriptors to follow
+0188 22              212                     db      22h             ; report descriptor type (HID)
+0189 32              213                     db      (HID1ReportDscrEnd-HID1ReportDscr) ; length of HID descriptor
+018A 00              214                     db      00h
+018B                 215     HID1DscrEndFS:
+                     216     
+                     217     
+018B                 218     HID1EpInDscrFS:
+018B 07              219                     db      HID1EpInDscrEnd-HID1EpInDscr            ;; Descriptor length
+018C 05              220                     db      DSCR_ENDPNT     ;; Descriptor type
+018D 82              221                     db      82H             ;; Endpoint number, and direction
+018E 03              222                     db      ET_INT          ;; Endpoint type
+018F 40              223                     db      40H             ;; Maximum packet size (LSB)
+0190 00              224                     db      00H             ;; Max packet size (MSB)
+0191 0A              225                     db      10              ;; Polling interval
+0192                 226     HID1EpInDscrEndFS:
+                     227     
+0192                 228     HID2IntrfcDscrFS:
+0192 09              229                     db      HID2IntrfcDscrEnd-HID2IntrfcDscr                ;; Descriptor length
+0193 04              230                     db      DSCR_INTRFC     ;; Descriptor type
+0194 01              231                     db      01H             ;; Zero-based index of this interface
+0195 00              232                     db      0               ;; Alternate setting
+0196 01              233                     db      1               ;; Number of end points 
+0197 03              234                     db      03H             ;; Interface class (HID)
+0198 00              235                     db      00H             ;; Interface sub class
+0199 00              236                     db      00H             ;; Interface sub sub class
+019A 00              237                     db      0               ;; Interface descriptor string index
+019B                 238     HID2IntrfcDscrEndFS:
+                     239                     
+019B                 240     HID2DscrFS:     
+019B 09              241                     db      09h             ; length
+019C 21              242                     db      21h             ; type: HID
+019D 1001            243                     db      10h,01h         ; release: HID class rev 1.0
+019F 00              244                     db      00h             ; country code (none)
+01A0 01              245                     db      01h             ; number of HID class descriptors to follow
+01A1 22              246                     db      22h             ; report descriptor type (HID)
+01A2 3F              247                     db      (HID2ReportDscrEnd-HID2ReportDscr) ; length of HID descriptor
+01A3 00              248                     db      00h
+01A4                 249     HID2DscrEndFS:
+                     250     
+                     251     
+01A4                 252     HID2EpInDscrFS:
+01A4 07              253                     db      HID2EpInDscrEnd-HID2EpInDscr            ;; Descriptor length
+01A5 05              254                     db      DSCR_ENDPNT     ;; Descriptor type
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     5
+
+01A6 81              255                     db      81H             ;; Endpoint number, and direction
+01A7 03              256                     db      ET_INT          ;; Endpoint type
+01A8 40              257                     db      40H             ;; Maximun packet size (LSB)
+01A9 00              258                     db      00H             ;; Max packect size (MSB)
+01AA 0A              259                     db      10              ;; Polling interval
+01AB                 260     HID2EpInDscrEndFS:
+                     261     
+                     262     ;; Interface Descriptor
+01AB 09              263           db   DSCR_INTRFC_LEN      ;; Descriptor length
+01AC 04              264           db   DSCR_INTRFC         ;; Descriptor type
+01AD 02              265           db   02H               ;; Zero-based index of this interface
+01AE 00              266           db   0               ;; Alternate setting
+01AF 02              267           db   2               ;; Number of end points 
+01B0 FF              268           db   0ffH            ;; Interface class
+01B1 00              269           db   00H               ;; Interface sub class
+01B2 00              270           db   00H               ;; Interface sub sub class
+01B3 00              271           db   0               ;; Interface descriptor string index
+                     272           
+                     273     ;; Endpoint Descriptor
+01B4 07              274           db   DSCR_ENDPNT_LEN      ;; Descriptor length
+01B5 05              275           db   DSCR_ENDPNT         ;; Descriptor type
+01B6 06              276           db   06H               ;; Endpoint number, and direction
+01B7 02              277           db   ET_BULK            ;; Endpoint type
+01B8 40              278           db   40H               ;; Maximun packet size (LSB)
+01B9 00              279           db   00H               ;; Max packect size (MSB)
+01BA 00              280           db   00H               ;; Polling interval
+                     281     
+                     282     ;; Endpoint Descriptor
+01BB 07              283           db   DSCR_ENDPNT_LEN      ;; Descriptor length
+01BC 05              284           db   DSCR_ENDPNT         ;; Descriptor type
+01BD 88              285           db   88H               ;; Endpoint number, and direction
+01BE 02              286           db   ET_BULK            ;; Endpoint type
+01BF 40              287           db   40H               ;; Maximun packet size (LSB)
+01C0 00              288           db   00H               ;; Max packect size (MSB)
+01C1 00              289           db   00H               ;; Polling interval
+                     290     
+01C2                 291     FullSpeedConfigDscrEnd: 
+                     292     
+01C2                 293     HID1ReportDscr:
+01C2 0501            294             db 05h, 01h     ;       Usage Page (Generic Desktop),
+01C4 0902            295             db 09h, 02h     ;       Usage (Mouse),
+01C6 A101            296             db 0A1h, 01h    ;       Collection (Application),
+01C8 0901            297             db 09h, 01h     ;           Usage (Pointer), 
+01CA A100            298             db 0A1h, 00h    ;           Collection (Physical),
+01CC 9503            299             db 95h, 03h     ;               Report Count (3),
+01CE 7501            300             db 75h, 01h     ;               Report Size (1),
+01D0 0509            301             db 05h, 09h     ;               Usage Page (Buttons),
+01D2 1901            302             db 19h, 01h     ;               Usage minimum (1)
+01D4 2903            303             db 29h, 03h     ;               Usage maximum (3)
+01D6 1500            304             db 15h, 00h     ;               Logical minimum (0),
+01D8 2501            305             db 25h, 01h     ;               Logical maximum (1),    
+01DA 8102            306             db 81h, 02h     ;               Input (Data, Variable, Absolute), (3 button bits)
+01DC 9501            307             db 95h, 01h     ;               Report Count (1),
+01DE 7505            308             db 75h, 05h     ;               Report Size (5),
+01E0 8101            309             db 81h, 01h     ;               Input (Constant)
+01E2 7508            310             db 75h, 08h     ;               Report Size (8)
+01E4 9502            311             db 95h, 02h     ;               Report Count (2)              
+01E6 0501            312             db 05h, 01h     ;               Usage Page (Generic Desktop),
+01E8 0930            313             db 09h, 30h     ;               Usage (X),
+01EA 0931            314             db 09h, 31h     ;               Usage (Y),
+01EC 1581            315             db 15h, 81h     ;               Logical Minimum (-127),
+01EE 257F            316             db 25h, 7Fh     ;               Logical Maximum (+127), 
+01F0 8106            317             db 81h, 06h     ;               Input (Data, Variable, Relative), (2 position bytes
+                              - X & Y)
+01F2 C0              318             db 0C0h         ;            End Collection
+01F3 C0              319             db 0C0h         ;        End Collection
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     6
+
+01F4                 320     HID1ReportDscrEnd:
+                     321     
+01F4                 322     HID2ReportDscr:
+01F4 0501            323             db 05h, 01h     ; Usage Page (Generic Desktop)
+01F6 0906            324             db 09h, 06h     ; Usage (Keyboard)
+01F8 A101            325             db 0A1h, 01h     ; Collection (Application)
+01FA 0507            326             db 05h, 07h     ;       Usage Page (Key codes)
+01FC 19E0            327             db 19h, 0E0h    ;       Usage minimum (234)
+01FE 29E7            328             db 29h, 0E7h    ;       Usage maximum (231)
+0200 1500            329             db 15h, 00h     ;       Logical minimum (0)
+0202 2501            330             db 25h, 01h     ;       Logical maximum (1)
+0204 7501            331             db 75h, 01h     ;       Report size (1)
+0206 9508            332             db 95h, 08h     ;       Report count (8)
+0208 8102            333             db 81h, 02h     ;       Input (data, variable, absolute)
+020A 9501            334             db 95h, 01h     ;       Report count (1)
+020C 7508            335             db 75h, 08h     ;       Report size (8)
+020E 8101            336             db 81h, 01h     ;       Input (constant)
+0210 9505            337             db 95h, 05h     ;       Report count (5)
+0212 7501            338             db 75h, 01h     ;       Report size (1)
+0214 0508            339             db 05h, 08h     ;       Usage Page (LED)
+0216 1901            340             db 19h, 01h     ;       Usage minimum (1)
+0218 2905            341             db 29h, 05h     ;       Usage maximum (5)
+021A 9102            342             db 91h, 02h     ;       Output (data, variable, absolute)
+021C 9501            343             db 95h, 01h     ;       Report count (1)
+021E 7503            344             db 75h, 03h     ;       Report size (3)
+0220 9101            345             db 91h, 01h     ;       Output (constant)
+0222 9503            346             db 95h, 03h     ;       Report count (3)
+0224 7508            347             db 75h, 08h     ;       Report size (8)
+0226 1500            348             db 15h, 00h     ;       Logical minimum (0)
+0228 2565            349             db 25h, 65h     ;       Logical maximum (101)
+022A 0507            350             db 05h, 07h     ;       Usage page (key codes)
+022C 1900            351             db 19h, 00h     ;       Usage minimum (0)
+022E 2965            352             db 29h, 65h     ;       Usage maximum (101)
+0230 8100            353             db 81h, 00h     ;       Input (data, array)
+0232 C0              354             db 0C0h          ; End Collection
+0233                 355     HID2ReportDscrEnd:
+                     356     
+0233 00              357             db 0            ; Added for word alignment
+                     358     
+0234                 359     StringDscr:
+                     360     
+0234                 361     StringDscr0:   
+0234 04              362           db   StringDscr0End-StringDscr0      ;; String descriptor length
+0235 03              363           db   DSCR_STRING
+0236 0904            364           db   09H,04H
+0238                 365     StringDscr0End:
+                     366     
+0238                 367     StringDscr1:   
+0238 0C              368           db   StringDscr1End-StringDscr1      ;; String descriptor length
+0239 03              369           db   DSCR_STRING
+023A 4D00            370           db   'M',00
+023C 6F00            371           db   'o',00
+023E 7500            372           db   'u',00
+0240 7300            373           db   's',00
+0242 6500            374           db   'e',00
+0244                 375     StringDscr1End:
+                     376     
+0244                 377     StringDscr2:   
+0244 12              378           db   StringDscr2End-StringDscr2      ;; Descriptor length
+0245 03              379           db   DSCR_STRING
+0246 4B00            380           db   'K',00
+0248 6500            381           db   'e',00
+024A 7900            382           db   'y',00
+024C 4200            383           db   'B',00
+024E 6F00            384           db   'o',00
+0250 6100            385           db   'a',00
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     7
+
+0252 7200            386           db   'r',00
+0254 6400            387           db   'd',00
+0256                 388     StringDscr2End:
+                     389     
+0256                 390     UserDscr:      
+0256 0000            391           dw   0000H
+                     392           end
+                                   
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     8
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                 T Y P E  V A L U E   ATTRIBUTES
+
+DEVICEDSCR . . . . . .  C ADDR   0100H   A   
+DEVICEQUALDSCR . . . .  C ADDR   0112H   A   
+DSCR_CONFIG. . . . . .  N NUMB   0002H   A   
+DSCR_CONFIG_LEN. . . .  N NUMB   0009H   A   
+DSCR_DEVICE. . . . . .  N NUMB   0001H   A   
+DSCR_DEVICE_LEN. . . .  N NUMB   0012H   A   
+DSCR_DEVQUAL . . . . .  N NUMB   0006H   A   
+DSCR_DEVQUAL_LEN . . .  N NUMB   000AH   A   
+DSCR_ENDPNT. . . . . .  N NUMB   0005H   A   
+DSCR_ENDPNT_LEN. . . .  N NUMB   0007H   A   
+DSCR_INTRFC. . . . . .  N NUMB   0004H   A   
+DSCR_INTRFC_LEN. . . .  N NUMB   0009H   A   
+DSCR_STRING. . . . . .  N NUMB   0003H   A   
+ET_BULK. . . . . . . .  N NUMB   0002H   A   
+ET_CONTROL . . . . . .  N NUMB   0000H   A   
+ET_INT . . . . . . . .  N NUMB   0003H   A   
+ET_ISO . . . . . . . .  N NUMB   0001H   A   
+FULLSPEEDCONFIGDSCR. .  C ADDR   0170H   A   
+FULLSPEEDCONFIGDSCREND  C ADDR   01C2H   A   
+HID1DSCR . . . . . . .  C ADDR   012EH   A   
+HID1DSCREND. . . . . .  C ADDR   0137H   A   
+HID1DSCRENDFS. . . . .  C ADDR   018BH   A   
+HID1DSCRFS . . . . . .  C ADDR   0182H   A   
+HID1EPINDSCR . . . . .  C ADDR   0137H   A   
+HID1EPINDSCREND. . . .  C ADDR   013EH   A   
+HID1EPINDSCRENDFS. . .  C ADDR   0192H   A   
+HID1EPINDSCRFS . . . .  C ADDR   018BH   A   
+HID1INTRFCDSCR . . . .  C ADDR   0125H   A   
+HID1INTRFCDSCREND. . .  C ADDR   012EH   A   
+HID1INTRFCDSCRENDFS. .  C ADDR   0182H   A   
+HID1INTRFCDSCRFS . . .  C ADDR   0179H   A   
+HID1REPORTDSCR . . . .  C ADDR   01C2H   A   
+HID1REPORTDSCREND. . .  C ADDR   01F4H   A   
+HID2DSCR . . . . . . .  C ADDR   0147H   A   
+HID2DSCREND. . . . . .  C ADDR   0150H   A   
+HID2DSCRENDFS. . . . .  C ADDR   01A4H   A   
+HID2DSCRFS . . . . . .  C ADDR   019BH   A   
+HID2EPINDSCR . . . . .  C ADDR   0150H   A   
+HID2EPINDSCREND. . . .  C ADDR   0157H   A   
+HID2EPINDSCRENDFS. . .  C ADDR   01ABH   A   
+HID2EPINDSCRFS . . . .  C ADDR   01A4H   A   
+HID2INTRFCDSCR . . . .  C ADDR   013EH   A   
+HID2INTRFCDSCREND. . .  C ADDR   0147H   A   
+HID2INTRFCDSCRENDFS. .  C ADDR   019BH   A   
+HID2INTRFCDSCRFS . . .  C ADDR   0192H   A   
+HID2REPORTDSCR . . . .  C ADDR   01F4H   A   
+HID2REPORTDSCREND. . .  C ADDR   0233H   A   
+HIGHSPEEDCONFIGDSCR. .  C ADDR   011CH   A   
+HIGHSPEEDCONFIGDSCREND  C ADDR   016EH   A   
+STRINGDSCR . . . . . .  C ADDR   0234H   A   
+STRINGDSCR0. . . . . .  C ADDR   0234H   A   
+STRINGDSCR0END . . . .  C ADDR   0238H   A   
+STRINGDSCR1. . . . . .  C ADDR   0238H   A   
+STRINGDSCR1END . . . .  C ADDR   0244H   A   
+STRINGDSCR2. . . . . .  C ADDR   0244H   A   
+STRINGDSCR2END . . . .  C ADDR   0256H   A   
+USERDSCR . . . . . . .  C ADDR   0256H   A   
+
+
+REGISTER BANK(S) USED: 0 
+A51 MACRO ASSEMBLER  DSCR                                                                 06/11/2021 13:52:09 PAGE     9
+
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
